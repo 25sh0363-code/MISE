@@ -41,11 +41,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      - name: Use runner Android SDK
+        run: |
+          test -d "$ANDROID_HOME"
+          test -d "$ANDROID_HOME/licenses"
+          ls "$ANDROID_HOME/platforms"
       - name: Install application dependencies
         run: npm install --no-audit --no-fund
       - name: Align Expo native dependencies
