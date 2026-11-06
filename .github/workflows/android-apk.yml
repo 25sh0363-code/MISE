@@ -1,0 +1,73 @@
+name: Build Mise APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'Mise-source.zip'
+      - 'app/**'
+      - 'src/**'
+      - 'assets/**'
+      - 'package*.json'
+      - 'app.json'
+      - '*config*'
+      - 'global.css'
+      - '.github/workflows/android-apk.yml'
+      - 'scripts/build-apk.sh'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mise-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+      NODE_OPTIONS: --max-old-space-size=6144
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack source archive when supplied
+        if: ${{ hashFiles('package.json') == '' }}
+        run: |
+          test -f Mise-source.zip
+          unzip -oq Mise-source.zip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install application dependencies
+        run: npm install --no-audit --no-fund
+      - name: Align Expo native dependencies
+        run: npx expo install --fix
+      - name: Validate application
+        run: |
+          npm run typecheck
+          npm test
+          npm run verify:source
+      - name: Build standalone APK
+        run: bash scripts/build-apk.sh
+      - name: Preserve installation package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mise-Android-APK
+          path: dist/Mise.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve resolved dependency versions
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mise-dependency-lock
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 14
